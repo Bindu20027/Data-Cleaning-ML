@@ -7,7 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1kC5JyyneWaX0IadgndyRSU5emDH1JleY
 """
 
-!pip install loguru
 from timeit import default_timer as timer
 import numpy as np
 import pandas as pd
