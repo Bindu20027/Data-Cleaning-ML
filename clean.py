@@ -21,53 +21,6 @@ from sklearn.metrics import mean_squared_error, accuracy_score
 class AutoClean:
 
     def __init__(self, input_data=None, file_path=None, mode='auto', duplicates=False, missing_num=False, missing_categ=False, encode_categ=False, extract_datetime=False, outliers=False, outlier_param=1.5, logfile=True, verbose=False):
-        '''
-        input_data (dataframe, optional)...Pandas dataframe to be cleaned. If file_path is provided, this argument is ignored.
-        file_path (str, optional)........Path to a CSV file to load and clean. If input_data is provided, this argument is ignored.
-        mode (str)......................define in which mode you want to run AutoClean
-                                        'auto' = sets all parameters to 'auto' and let AutoClean do the data cleaning automatically
-                                        'manual' = lets you choose which parameters/cleaning steps you want to perform
-
-        duplicates (str)................define if duplicates in the data should be handled
-                                        duplicates are rows where all features are identical
-                                        'auto' = automated handling, deletes all copies of duplicates except one
-                                        False = skips this step
-        missing_num (str)...............define how NUMERICAL missing values are handled
-                                        'auto' = automated handling
-                                        'linreg' = uses Linear Regression for predicting missing values
-                                        'knn' = uses K-NN algorithm for imputation
-                                        'mean','median' or 'most_frequent' = uses mean/median/mode imputatiom
-                                        'delete' = deletes observations with missing values
-                                        False = skips this step
-        missing_categ (str).............define how CATEGORICAL missing values are handled
-                                        'auto' = automated handling
-                                        'logreg' = uses Logistic Regression for predicting missing values
-                                        'knn' = uses K-NN algorithm for imputation
-                                        'most_frequent' = uses mode imputatiom
-                                        'delete' = deletes observations with missing values
-                                        False = skips this step
-        encode_categ (list).............encode CATEGORICAL features, takes a list as input
-                                        ['auto'] = automated encoding
-                                        ['onehot'] = one-hot-encode all CATEGORICAL features
-                                        ['label'] = label-encode all categ. features
-                                        to encode only specific features add the column name or index: ['onehot', 2]
-                                        False = skips this step
-        extract_datetime (str)..........define whether DATETIME type features should be extracted into separate features
-                                        to define granularity set to 'D'= day, 'M'= month, 'Y'= year, 'h'= hour, 'm'= minute or 's'= second
-                                        False = skips this step
-        outliers (str)..................define how outliers are handled
-                                        'winz' = replaces outliers through winsorization
-                                        'delete' = deletes observations containing outliers
-                                        oberservations are considered outliers if they are outside the lower and upper bound [Q1-1.5*IQR, Q3+1.5*IQR], where IQR is the interquartile range
-                                        to set a custom multiplier use the 'outlier_param' parameter
-                                        False = skips this step
-        outlier_param (int, float)......define the multiplier for the outlier bounds
-        logfile (bool)..................define whether to create a logile during the AutoClean process
-                                        logfile will be saved in working directory as "autoclean.log"
-        verbose (bool)..................define whether AutoClean logs will be printed in console
-
-        OUTPUT (dataframe)..............a cleaned Pandas dataframe, accessible through the 'output' instance
-        '''
         start = timer()
         self._initialize_logger(verbose, logfile)
 
