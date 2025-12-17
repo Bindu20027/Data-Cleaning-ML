@@ -1,5 +1,5 @@
 FROM python:3.9-slim-buster
-ghjgf
+
 WORKDIR /app
 
 COPY requirements.txt .
