@@ -1,0 +1,8 @@
+version: '3'
+services:
+  autoclean-app:
+    build: .
+    ports:
+      - "8501:8501"
+    container_name: autoclean-app
+    restart: always
