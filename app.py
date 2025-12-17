@@ -6,44 +6,46 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 from clean import AutoClean, calculate_rmse
+import base64
+from pathlib import Path
 
 def add_bg_design():
+    bg_image_path = Path("assets/bg.jpg")
+
+    with open(bg_image_path, "rb") as img_file:
+        encoded = base64.b64encode(img_file.read()).decode()
+
     st.markdown(
-        """
+        f"""
         <style>
-        .stApp {
-            background-image: url('assets/bg.jpg') !important;
-            background-size: cover !important;
-            background-repeat: no-repeat !important;
-            background-attachment: fixed !important;
-        }
+        .stApp {{
+            background-image: url("data:image/jpg;base64,{encoded}");
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
 
-        .block-container {
-            background: rgba(255, 255, 255, 0.15) !important;
-            border-radius: 15px !important;
-            padding: 20px !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            border: 2px solid rgba(255, 255, 255, 0.4) !important;
-        }
+        .block-container {{
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+        }}
 
-        h1, h2, h3, p, label, span {
+        h1, h2, h3, p, label, span {{
             color: white !important;
-        }
+        }}
 
-        .stButton>button {
-            background-color: rgba(255, 255, 255, 0.8) !important;
-            color: black !important;
-            border-radius: 10px !important;
-            padding: 0.6rem 1.2rem !important;
-            border: none !important;
-            font-weight: bold !important;
-            transition: 0.3s !important;
-        }
-        .stButton>button:hover {
-            background-color: rgba(255, 255, 255, 1) !important;
-            transform: scale(1.05) !important;
-        }
+        .stButton>button {{
+            background-color: rgba(255, 255, 255, 0.8);
+            color: black;
+            border-radius: 10px;
+            padding: 0.6rem 1.2rem;
+            border: none;
+            font-weight: bold;
+        }}
         </style>
         """,
         unsafe_allow_html=True
