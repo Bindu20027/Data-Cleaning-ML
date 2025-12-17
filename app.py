@@ -6,6 +6,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 from clean import AutoClean, calculate_rmse
+
 def add_bg_design():
     st.markdown(
         """
