@@ -119,173 +119,134 @@ if df is not None:
             )
             autoclean_params['outlier_param'] = st.slider("Outlier Multiplier", 0.5, 3.0, 1.5)
 
-    if st.button("Run AutoClean Evaluation"):
-        st.write("### Running Evaluation...")
+if st.button("Run AutoClean Evaluation"):
+    st.write("### Running Evaluation...")
 
-        try:
-            y = df[target_column_name]
-            X = df.drop(columns=[target_column_name])
-        except KeyError:
-            st.error(f"Target column '{target_column_name}' not found.")
-            st.stop()
+    # ----------------------
+    # Step 0: Sample dataset for memory efficiency
+    # ----------------------
+    MAX_EVAL_ROWS = 5000
+    if len(df) > MAX_EVAL_ROWS:
+        st.warning(f"Dataset too large for evaluation, using a random sample of {MAX_EVAL_ROWS} rows.")
+        df_eval = df.sample(n=MAX_EVAL_ROWS, random_state=42).reset_index(drop=True)
+    else:
+        df_eval = df.copy()
 
-        # Split BEFORE cleaning
-        X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
-        st.write(f"Data split: X_train {X_train.shape}, X_val {X_val.shape}")
+    try:
+        y = df_eval[target_column_name]
+        X = df_eval.drop(columns=[target_column_name])
+    except KeyError:
+        st.error(f"Target column '{target_column_name}' not found.")
+        st.stop()
 
-        # AUTO-DETECT problem type
-        if pd.api.types.is_numeric_dtype(y_train) and y_train.nunique() > 2:
-            problem_type = 'regression'
-            ml_model = LinearRegression()
-            eval_metric = calculate_rmse
-            metric_name = 'RMSE'
-            st.info("Detected problem type: Regression")
-        else:
-            problem_type = 'classification'
-            ml_model = LogisticRegression(max_iter=1000, solver='liblinear')
-            eval_metric = accuracy_score
-            metric_name = 'Accuracy'
-            st.info("Detected problem type: Classification")
+    # Split BEFORE cleaning
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+    st.write(f"Data split: X_train {X_train.shape}, X_val {X_val.shape}")
 
-        # Strategies to test
-        autoclean_strategies = [autoclean_params, {"mode": "auto", "verbose": False}]
+    # AUTO-DETECT problem type
+    if pd.api.types.is_numeric_dtype(y_train) and y_train.nunique() > 2:
+        problem_type = 'regression'
+        ml_model = LinearRegression()
+        eval_metric = calculate_rmse
+        metric_name = 'RMSE'
+        st.info("Detected problem type: Regression")
+    else:
+        problem_type = 'classification'
+        ml_model = LogisticRegression(max_iter=1000, solver='liblinear')
+        from sklearn.metrics import accuracy_score
+        eval_metric = accuracy_score
+        metric_name = 'Accuracy'
+        st.info("Detected problem type: Classification")
 
-        results = []
+    # Strategies to test
+    autoclean_strategies = [autoclean_params, {"mode": "auto", "verbose": False}]
 
-        for idx, params in enumerate(autoclean_strategies):
-            st.write(f"--- Evaluating Strategy {idx+1}: {params['mode'].upper()} ---")
+    results = []
 
-            # Combine X and y for cleaning to maintain consistent lengths during row deletions
-            # Reset index to avoid issues with differing indices after split or prior operations
-            train_df_combined = pd.concat([X_train.reset_index(drop=True), y_train.reset_index(drop=True)], axis=1)
-            val_df_combined = pd.concat([X_val.reset_index(drop=True), y_val.reset_index(drop=True)], axis=1)
+    for idx, params in enumerate(autoclean_strategies):
+        st.write(f"--- Evaluating Strategy {idx+1}: {params['mode'].upper()} ---")
 
-            # Clean combined TRAIN independently — NO LEAKAGE
-            cleaned_train_combined = AutoClean(input_data=train_df_combined.copy(), **params).output.copy()
-            
-            # Check if target column was removed during cleaning
-            if target_column_name not in cleaned_train_combined.columns:
-                st.warning(f"Target column '{target_column_name}' was removed during cleaning for training set under strategy {params['mode']}. Skipping model training for this strategy.")
-                metric_value = float('nan')
-                results.append({"params": params, metric_name: metric_value})
-                continue
+        # Combine X and y for cleaning
+        train_df_combined = pd.concat([X_train.reset_index(drop=True), y_train.reset_index(drop=True)], axis=1)
+        val_df_combined = pd.concat([X_val.reset_index(drop=True), y_val.reset_index(drop=True)], axis=1)
 
-            # Split back into features and target
-            cleaned_train = cleaned_train_combined.drop(columns=[target_column_name])
-            y_train_cleaned = cleaned_train_combined[target_column_name]
+        # Clean TRAIN & VAL separately
+        cleaned_train_combined = AutoClean(input_data=train_df_combined.copy(), **params).output.copy()
+        cleaned_val_combined = AutoClean(input_data=val_df_combined.copy(), **params).output.copy()
 
-            # Clean combined VAL independently — NO LEAKAGE
-            cleaned_val_combined = AutoClean(input_data=val_df_combined.copy(), **params).output.copy()
-            
-            # Check if target column was removed during cleaning
-            if target_column_name not in cleaned_val_combined.columns:
-                st.warning(f"Target column '{target_column_name}' was removed during cleaning for validation set under strategy {params['mode']}. Skipping model training for this strategy.")
-                metric_value = float('nan')
-                results.append({"params": params, metric_name: metric_value})
-                continue
+        # Skip if target was removed
+        if target_column_name not in cleaned_train_combined.columns or target_column_name not in cleaned_val_combined.columns:
+            st.warning(f"Target column removed under strategy {params['mode']}. Skipping this strategy.")
+            results.append({"params": params, metric_name: float('nan')})
+            continue
 
-            # Split back into features and target
-            cleaned_val = cleaned_val_combined.drop(columns=[target_column_name])
-            y_val_cleaned = cleaned_val_combined[target_column_name]
+        # Split back into features and target
+        cleaned_train = cleaned_train_combined.drop(columns=[target_column_name]).select_dtypes(include=np.number)
+        y_train_cleaned = cleaned_train_combined[target_column_name]
+        cleaned_val = cleaned_val_combined.drop(columns=[target_column_name]).select_dtypes(include=np.number)
+        y_val_cleaned = cleaned_val_combined[target_column_name]
 
-            # Drop non-numeric columns from features
-            cleaned_train = cleaned_train.select_dtypes(include=np.number)
-            cleaned_val = cleaned_val.select_dtypes(include=np.number)
+        # Align numeric columns
+        common_cols = list(set(cleaned_train.columns) & set(cleaned_val.columns))
+        if not common_cols:
+            st.warning(f"No common numeric features left under strategy {params['mode']}. Skipping.")
+            results.append({"params": params, metric_name: float('nan')})
+            continue
+        cleaned_train = cleaned_train[common_cols]
+        cleaned_val = cleaned_val[common_cols]
 
-            # Align columns between train/val (only for numeric features)
-            common_cols = list(set(cleaned_train.columns) & set(cleaned_val.columns))
-            
-            # If no common numeric columns are left, this strategy is not viable
-            if not common_cols:
-                st.warning(f"No common numeric features found after cleaning for strategy {params['mode'].upper()}. Skipping model training.")
-                metric_value = float('nan')
-                results.append({"params": params, metric_name: metric_value})
-                continue
+        # Ensure classification targets are ints
+        if problem_type == 'classification':
+            y_train_cleaned = y_train_cleaned.astype(int)
+            y_val_cleaned = y_val_cleaned.astype(int)
 
-            cleaned_train = cleaned_train[common_cols]
-            cleaned_val = cleaned_val[common_cols]
+        ml_model.fit(cleaned_train, y_train_cleaned)
+        y_pred = ml_model.predict(cleaned_val)
+        metric_value = eval_metric(y_val_cleaned, y_pred)
+        results.append({"params": params, metric_name: metric_value})
 
-            # Safety check for feature columns (could be empty if all were dropped)
-            if cleaned_train.empty or cleaned_val.empty or cleaned_train.shape[1] == 0 or cleaned_val.shape[1] == 0:
-                metric_value = float('nan')
-                st.warning(f"No usable features left after cleaning for strategy {params['mode'].upper()}. Skipping model training.")
-                results.append({"params": params, metric_name: metric_value})
-                continue
-            
-            # Ensure y_train_cleaned and y_val_cleaned are properly typed for models
-            if problem_type == 'classification':
-                y_train_cleaned = y_train_cleaned.astype(int)
-                y_val_cleaned = y_val_cleaned.astype(int)
-            
-            # Check if the cleaned target variable became empty due to all rows being dropped
-            if y_train_cleaned.empty or y_val_cleaned.empty:
-                st.warning(f"Target variable became empty after cleaning for strategy {params['mode'].upper()}. Skipping model training.")
-                metric_value = float('nan')
-                results.append({"params": params, metric_name: metric_value})
-                continue
-            
-            ml_model.fit(cleaned_train, y_train_cleaned) # Use cleaned y_train
-            y_pred = ml_model.predict(cleaned_val)
+    # ----------------------
+    # Show Results
+    # ----------------------
+    st.header("3. Evaluation Results")
+    best_val = float('inf') if metric_name == 'RMSE' else -float('inf')
+    best_strategy = None
 
-            # y_val_cleaned and y_pred should now have consistent lengths due to the combined cleaning approach
-            metric_value = eval_metric(y_val_cleaned, y_pred) # Use cleaned y_val
-            results.append({"params": params, metric_name: metric_value})
+    for r in results:
+        st.write(f"Strategy {r['params']} → {metric_name}: {r[metric_name]:.4f}")
+        if metric_name == 'RMSE' and r[metric_name] < best_val:
+            best_val = r[metric_name]
+            best_strategy = r['params']
+        elif metric_name != 'RMSE' and r[metric_name] > best_val:
+            best_val = r[metric_name]
+            best_strategy = r['params']
 
-        # ----------------------
-        # Show Results
-        # ----------------------
-        st.header("3. Evaluation Results")
+    if best_strategy:
+        st.success(f"Best Strategy: {best_strategy}")
+        st.success(f"Best {metric_name}: {best_val:.4f}")
+    else:
+        st.warning("No valid strategy found.")
 
-        best_val = float('inf') if metric_name == 'RMSE' else -float('inf')
-        best_strategy = None
+    # ----------------------
+    # Final Cleaning on FULL dataset
+    # ----------------------
+    st.header("4. Cleaned Data Output")
+    full_df_combined = pd.concat([df.drop(columns=[target_column_name]).copy().reset_index(drop=True),
+                                  df[target_column_name].reset_index(drop=True)], axis=1)
 
-        for r in results:
-            st.write(f"Strategy {r['params']} → {metric_name}: {r[metric_name]:.4f}")
+    if best_strategy:
+        final_cleaned_combined = AutoClean(input_data=full_df_combined, **best_strategy).output
+        final_cleaned_df = final_cleaned_combined
+    else:
+        final_cleaned_df = df.copy()
 
-            if metric_name == 'RMSE':
-                if r[metric_name] < best_val:
-                    best_val = r[metric_name]
-                    best_strategy = r['params']
-            else:
-                if r[metric_name] > best_val:
-                    best_val = r[metric_name]
-                    best_strategy = r['params']
+    st.write("Cleaned Data Preview:")
+    st.dataframe(final_cleaned_df.head())
+    st.download_button(
+        label="Download Cleaned Dataset",
+        data=final_cleaned_df.to_csv(index=False),
+        file_name="cleaned_output.csv",
+        mime="text/csv",
+    )
 
-        if best_strategy:
-            st.success(f"Best Strategy: {best_strategy}")
-            st.success(f"Best {metric_name}: {best_val:.4f}")
-        else:
-            st.warning("No best strategy found (all strategies might have failed or resulted in NaN metric values).")
-
-        # ----------------------
-        # Final Cleaning + Download
-        # ----------------------
-        st.header("4. Cleaned Data Output")
-
-        # Combine full X and y for final cleaning using the best strategy
-        full_df_combined = pd.concat([df.drop(columns=[target_column_name]).copy().reset_index(drop=True), df[target_column_name].reset_index(drop=True)], axis=1)
-
-        if best_strategy:
-            final_cleaned_combined = AutoClean(input_data=full_df_combined, **best_strategy).output
-            
-            if target_column_name not in final_cleaned_combined.columns:
-                st.warning(f"Target column '{target_column_name}' was removed during final cleaning with the best strategy. Cannot reconstruct original target. Outputting only cleaned features.")
-                final_cleaned_df = final_cleaned_combined # Only features, potentially missing target
-            else:
-                final_clean_features = final_cleaned_combined.drop(columns=[target_column_name])
-                final_clean_target = final_cleaned_combined[target_column_name]
-                final_cleaned_df = pd.concat([final_clean_features, final_clean_target], axis=1)
-        else:
-            st.warning("No best strategy found (perhaps due to errors). Returning original data as cleaned output.")
-            final_cleaned_df = df.copy() # Fallback to original if no best strategy
-
-        st.write("Cleaned Data Preview:")
-        st.dataframe(final_cleaned_df.head())
-
-        st.download_button(
-            label="Download Cleaned Dataset",
-            data=final_cleaned_df.to_csv(index=False),
-            file_name="cleaned_output.csv",
-            mime="text/csv",
-        )
 
