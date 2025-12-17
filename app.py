@@ -9,49 +9,44 @@ from clean import AutoClean, calculate_rmse
 import base64
 from pathlib import Path
 
-def add_bg_design():
-    bg_image_path = Path("assets/bg.jpg")
 
-    with open(bg_image_path, "rb") as img_file:
-        encoded = base64.b64encode(img_file.read()).decode()
+def add_bg_design():
+    bg_path = Path(__file__).parent / "assets" / "bg.jpg"
+
+    if not bg_path.exists():
+        st.error("Background image not found")
+        return
+
+    with open(bg_path, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode()
 
     st.markdown(
         f"""
         <style>
-        .stApp {{
-            background-image: url("data:image/jpg;base64,{encoded}");
+        /* Main app background */
+        [data-testid="stAppViewContainer"] {{
+            background-image: url("data:image/jpeg;base64,{encoded}");
             background-size: cover;
+            background-position: center;
             background-repeat: no-repeat;
-            background-attachment: fixed;
         }}
 
+        /* Content container */
         .block-container {{
             background: rgba(255, 255, 255, 0.15);
             border-radius: 15px;
-            padding: 20px;
+            padding: 2rem;
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            border: 2px solid rgba(255, 255, 255, 0.4);
         }}
 
         h1, h2, h3, p, label, span {{
             color: white !important;
         }}
-
-        .stButton>button {{
-            background-color: rgba(255, 255, 255, 0.8);
-            color: black;
-            border-radius: 10px;
-            padding: 0.6rem 1.2rem;
-            border: none;
-            font-weight: bold;
-        }}
         </style>
         """,
         unsafe_allow_html=True
     )
-
-# Activate the design
 add_bg_design()
 
 st.title("AutoClean - Performance-Driven Data Cleaning App")
