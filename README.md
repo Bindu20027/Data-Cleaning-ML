@@ -3,12 +3,16 @@
 AutoClean is an interactive Streamlit web application that automates data cleaning, preprocessing, and machine learning evaluation.
 Users can upload datasets, configure cleaning strategies, compare model performance, and download cleaned data — all from a browser-based interface.
 
+
+
 🚀 Live Demo (Streamlit Cloud)
 
 🔗 Streamlit App URL:
 (Add your Streamlit Cloud link here)
 
 The application is deployed using Streamlit Community Cloud to ensure stability and full functionality.
+
+
 
 📁 Project Structure
 Data-Cleaning-ML/
@@ -19,6 +23,8 @@ Data-Cleaning-ML/
 │   └── bg.jpg              # UI background image
 ├── requirements.txt        # Python dependencies
 ├── README.md               # Project documentation
+
+
 
 ✨ Key Features
 
@@ -58,6 +64,8 @@ Download cleaned dataset
 
 Fully interactive Streamlit UI
 
+
+
 🖥️ app.py – Streamlit Frontend
 
 app.py defines the user interface and workflow.
@@ -84,6 +92,9 @@ add_bg_design()
 
 
 The background image is embedded using Base64 encoding to ensure compatibility across deployments.
+
+
+
 
 🧠 clean.py – AutoClean Engine
 
@@ -124,6 +135,9 @@ Compares manual vs auto cleaning strategies
 
 Selects the best-performing strategy
 
+
+
+
 ⚠️ Deployment Note
 
 Initial deployment attempts on AWS EC2 (t3.micro) caused:
@@ -135,6 +149,8 @@ Reduced functionality
 Memory exhaustion during KNN imputation & model training
 
 To ensure stability and correctness, the application is deployed on Streamlit Community Cloud, which provides a more suitable environment for interactive ML workloads.
+
+
 
 🛠️ Requirements
 
@@ -149,6 +165,8 @@ openpyxl
 Run locally:
 
 streamlit run app.py
+
+
 
 📌 Known Limitations
 
