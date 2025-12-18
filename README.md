@@ -138,19 +138,12 @@ To ensure stability and correctness, the application is deployed on Streamlit Co
 
 🛠️ Requirements
 
-Python 3.9+
-
-Streamlit
-
-Pandas
-
-NumPy
-
-Scikit-learn
-
-Install dependencies locally:
-
-pip install -r requirements.txt
+streamlit
+pandas
+numpy
+scikit-learn
+loguru
+openpyxl
 
 
 Run locally:
