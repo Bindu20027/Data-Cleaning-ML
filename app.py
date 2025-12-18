@@ -15,27 +15,74 @@ def add_bg_design():
     if not bg_path.exists():
         st.error("Background image not found")
         return
+
     with open(bg_path, "rb") as f:
         encoded = base64.b64encode(f.read()).decode()
+
     st.markdown(
         f"""
         <style>
+
+        /* MAIN APP BACKGROUND */
         [data-testid="stAppViewContainer"] {{
             background-image: url("data:image/jpeg;base64,{encoded}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
         }}
+
+        /* MAIN CONTENT AREA (DESKTOP-FIRST) */
         .block-container {{
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 15px;
-            padding: 2rem;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            max-width: 1200px;
+            margin: auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 2rem 2.5rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }}
-        h1, h2, h3, p, label, span {{
-            color: white !important;
+
+        /* FORCE ALL TEXT TO BLACK */
+        html, body, p, span, label, div,
+        h1, h2, h3, h4, h5,
+        input, textarea, select, button,
+        table, th, td {{
+            color: #000000 !important;
         }}
+
+        /* INPUTS & SELECTS */
+        input, textarea, select {{
+            background-color: #ffffff !important;
+            border: 1px solid #cccccc !important;
+        }}
+
+        /* TABLE FIX */
+        table {{
+            background-color: #ffffff !important;
+        }}
+
+        th {{
+            background-color: #f2f2f2 !important;
+            font-weight: 600;
+        }}
+
+        /* BUTTONS */
+        button {{
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            border-radius: 8px;
+            font-weight: 600;
+        }}
+
+        /* MOBILE VIEW ONLY */
+        @media (max-width: 768px) {{
+            .block-container {{
+                background: rgba(255, 255, 255, 0.8);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                padding: 1.2rem;
+            }}
+        }}
+
         </style>
         """,
         unsafe_allow_html=True
