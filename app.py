@@ -215,11 +215,8 @@ if df is not None:
             # Split back into features and target
             cleaned_train = cleaned_train_combined.drop(columns=[target_column_name])
             y_train_cleaned = cleaned_train_combined[target_column_name]
-
-            # Clean combined VAL independently — NO LEAKAGE
             cleaned_val_combined = AutoClean(input_data=val_df_combined.copy(), **params).output.copy()
 
-            # Check if target column was removed during cleaning
             if target_column_name not in cleaned_val_combined.columns:
                 st.warning(f"Target column '{target_column_name}' was removed during cleaning for validation set under strategy {params['mode']}. Skipping model training for this strategy.")
                 metric_value = float('nan')
@@ -254,12 +251,10 @@ if df is not None:
                 results.append({"params": params, metric_name: metric_value})
                 continue
 
-            # Ensure y_train_cleaned and y_val_cleaned are properly typed for models
             if problem_type == 'classification':
                 y_train_cleaned = y_train_cleaned.astype(int)
                 y_val_cleaned = y_val_cleaned.astype(int)
 
-            # Check if the cleaned target variable became empty due to all rows being dropped
             if y_train_cleaned.empty or y_val_cleaned.empty:
                 st.warning(f"Target variable became empty after cleaning for strategy {params['mode'].upper()}. Skipping model training.")
                 metric_value = float('nan')
