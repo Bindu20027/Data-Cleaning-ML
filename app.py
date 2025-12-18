@@ -4,34 +4,28 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import mean_squared_error, accuracy_score
-
 from clean import AutoClean, calculate_rmse
 import base64
 from pathlib import Path
+import io
 
 
 def add_bg_design():
     bg_path = Path(__file__).parent / "assets" / "bg.jpg"
-
     if not bg_path.exists():
         st.error("Background image not found")
         return
-
     with open(bg_path, "rb") as f:
         encoded = base64.b64encode(f.read()).decode()
-
     st.markdown(
         f"""
         <style>
-        /* Main app background */
         [data-testid="stAppViewContainer"] {{
             background-image: url("data:image/jpeg;base64,{encoded}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
         }}
-
-        /* Content container */
         .block-container {{
             background: rgba(255, 255, 255, 0.15);
             border-radius: 15px;
@@ -39,7 +33,6 @@ def add_bg_design():
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }}
-
         h1, h2, h3, p, label, span {{
             color: white !important;
         }}
@@ -47,10 +40,11 @@ def add_bg_design():
         """,
         unsafe_allow_html=True
     )
+
 add_bg_design()
 
-st.title("AutoClean - Performance-Driven Data Cleaning App")
 
+st.title("AutoClean - Performance-Driven Data Cleaning App")
 st.header("1. Upload Your Dataset")
 uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
 
@@ -65,21 +59,14 @@ if uploaded_file is not None:
         st.write("Original Data Head:", df.head())
     except Exception as e:
         st.error(f"Error loading file: {e}")
-
 if df is not None:
     st.header("2. Configure Cleaning and ML Experiment")
 
-    # Target Column Input
     all_columns = df.columns.tolist()
-    target_column_name = st.selectbox(
-        "Select your Target Column (y)",
-        options=all_columns
-    )
+    target_column_name = st.selectbox("Select your Target Column (y)", options=all_columns)
 
-    # AutoClean Parameters Input
     st.subheader("AutoClean Strategy Configuration")
-    mode_option = st.selectbox("AutoClean Mode", ['auto', 'manual'], index=1) # Default to manual for customization
-
+    mode_option = st.selectbox("AutoClean Mode", ['auto', 'manual'], index=1)
     autoclean_params = {'mode': mode_option, 'verbose': False}
 
     if mode_option == 'manual':
@@ -88,46 +75,35 @@ if df is not None:
             autoclean_params['missing_num'] = st.selectbox(
                 "Handle Numerical Missing Values",
                 ['knn', 'mean', 'median', 'most_frequent', 'linreg', 'delete', False],
-                index=0 # Default to knn
+                index=0
             )
             autoclean_params['missing_categ'] = st.selectbox(
                 "Handle Categorical Missing Values",
                 ['most_frequent', 'logreg', 'knn', 'delete', False],
-                index=0 # Default to most_frequent
+                index=0
             )
-            autoclean_params['duplicates'] = st.selectbox(
-                "Handle Duplicates",
-                ['auto', False],
-                index=0 # Default to auto
-            )
+            autoclean_params['duplicates'] = st.selectbox("Handle Duplicates", ['auto', False], index=0)
         with col2:
-            autoclean_params['outliers'] = st.selectbox(
-                "Handle Outliers",
-                ['winz', 'delete', False],
-                index=0 # Default to winz
-            )
+            autoclean_params['outliers'] = st.selectbox("Handle Outliers", ['winz', 'delete', False], index=0)
             autoclean_params['extract_datetime'] = st.selectbox(
                 "Extract Datetime Features (Granularity)",
                 ['D', 'M', 'Y', 'h', 'm', 's', False],
-                index=0 # Default to D
+                index=0
             )
             autoclean_params['encode_categ'] = st.selectbox(
                 "Encode Categorical Features",
                 [['onehot'], ['label'], ['auto'], False],
                 format_func=lambda x: x[0].upper() if isinstance(x, list) else str(x),
-                index=0 # Default to onehot
+                index=0
             )
             autoclean_params['outlier_param'] = st.slider("Outlier Multiplier", 0.5, 3.0, 1.5)
 
-if st.button("Run AutoClean Evaluation"):
+if st.button("Run AutoClean Evaluation") and df is not None:
     st.write("### Running Evaluation...")
 
-    # ----------------------
-    # Step 0: Sample dataset for memory efficiency
-    # ----------------------
     MAX_EVAL_ROWS = 5000
     if len(df) > MAX_EVAL_ROWS:
-        st.warning(f"Dataset too large for evaluation, using a random sample of {MAX_EVAL_ROWS} rows.")
+        st.warning(f"Dataset too large, using a random sample of {MAX_EVAL_ROWS} rows.")
         df_eval = df.sample(n=MAX_EVAL_ROWS, random_state=42).reset_index(drop=True)
     else:
         df_eval = df.copy()
@@ -139,11 +115,9 @@ if st.button("Run AutoClean Evaluation"):
         st.error(f"Target column '{target_column_name}' not found.")
         st.stop()
 
-    # Split BEFORE cleaning
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
     st.write(f"Data split: X_train {X_train.shape}, X_val {X_val.shape}")
 
-    # AUTO-DETECT problem type
     if pd.api.types.is_numeric_dtype(y_train) and y_train.nunique() > 2:
         problem_type = 'regression'
         ml_model = LinearRegression()
@@ -153,40 +127,32 @@ if st.button("Run AutoClean Evaluation"):
     else:
         problem_type = 'classification'
         ml_model = LogisticRegression(max_iter=1000, solver='liblinear')
-        from sklearn.metrics import accuracy_score
         eval_metric = accuracy_score
         metric_name = 'Accuracy'
         st.info("Detected problem type: Classification")
 
-    # Strategies to test
     autoclean_strategies = [autoclean_params, {"mode": "auto", "verbose": False}]
-
     results = []
 
     for idx, params in enumerate(autoclean_strategies):
         st.write(f"--- Evaluating Strategy {idx+1}: {params['mode'].upper()} ---")
-
-        # Combine X and y for cleaning
         train_df_combined = pd.concat([X_train.reset_index(drop=True), y_train.reset_index(drop=True)], axis=1)
         val_df_combined = pd.concat([X_val.reset_index(drop=True), y_val.reset_index(drop=True)], axis=1)
 
-        # Clean TRAIN & VAL separately
-        cleaned_train_combined = AutoClean(input_data=train_df_combined.copy(), **params).output.copy()
-        cleaned_val_combined = AutoClean(input_data=val_df_combined.copy(), **params).output.copy()
+        with st.spinner(f"Running AutoClean for strategy {params['mode']}..."):
+            cleaned_train_combined = AutoClean(input_data=train_df_combined.copy(), **params).output.copy()
+            cleaned_val_combined = AutoClean(input_data=val_df_combined.copy(), **params).output.copy()
 
-        # Skip if target was removed
         if target_column_name not in cleaned_train_combined.columns or target_column_name not in cleaned_val_combined.columns:
-            st.warning(f"Target column removed under strategy {params['mode']}. Skipping this strategy.")
+            st.warning(f"Target column removed under strategy {params['mode']}. Skipping.")
             results.append({"params": params, metric_name: float('nan')})
             continue
 
-        # Split back into features and target
         cleaned_train = cleaned_train_combined.drop(columns=[target_column_name]).select_dtypes(include=np.number)
         y_train_cleaned = cleaned_train_combined[target_column_name]
         cleaned_val = cleaned_val_combined.drop(columns=[target_column_name]).select_dtypes(include=np.number)
         y_val_cleaned = cleaned_val_combined[target_column_name]
 
-        # Align numeric columns
         common_cols = list(set(cleaned_train.columns) & set(cleaned_val.columns))
         if not common_cols:
             st.warning(f"No common numeric features left under strategy {params['mode']}. Skipping.")
@@ -195,7 +161,6 @@ if st.button("Run AutoClean Evaluation"):
         cleaned_train = cleaned_train[common_cols]
         cleaned_val = cleaned_val[common_cols]
 
-        # Ensure classification targets are ints
         if problem_type == 'classification':
             y_train_cleaned = y_train_cleaned.astype(int)
             y_val_cleaned = y_val_cleaned.astype(int)
@@ -205,13 +170,9 @@ if st.button("Run AutoClean Evaluation"):
         metric_value = eval_metric(y_val_cleaned, y_pred)
         results.append({"params": params, metric_name: metric_value})
 
-    # ----------------------
-    # Show Results
-    # ----------------------
     st.header("3. Evaluation Results")
     best_val = float('inf') if metric_name == 'RMSE' else -float('inf')
     best_strategy = None
-
     for r in results:
         st.write(f"Strategy {r['params']} → {metric_name}: {r[metric_name]:.4f}")
         if metric_name == 'RMSE' and r[metric_name] < best_val:
@@ -226,25 +187,26 @@ if st.button("Run AutoClean Evaluation"):
         st.success(f"Best {metric_name}: {best_val:.4f}")
     else:
         st.warning("No valid strategy found.")
+    @st.cache_data
+    def get_final_cleaned(df, target_column_name, best_strategy):
+        full_df_combined = pd.concat([df.drop(columns=[target_column_name]).copy().reset_index(drop=True),
+                                      df[target_column_name].reset_index(drop=True)], axis=1)
+        if best_strategy:
+            return AutoClean(input_data=full_df_combined, **best_strategy).output
+        return df.copy()
 
-    # ----------------------
-    # Final Cleaning on FULL dataset
-    # ----------------------
+    final_cleaned_df = get_final_cleaned(df, target_column_name, best_strategy)
+
     st.header("4. Cleaned Data Output")
-    full_df_combined = pd.concat([df.drop(columns=[target_column_name]).copy().reset_index(drop=True),
-                                  df[target_column_name].reset_index(drop=True)], axis=1)
-
-    if best_strategy:
-        final_cleaned_combined = AutoClean(input_data=full_df_combined, **best_strategy).output
-        final_cleaned_df = final_cleaned_combined
-    else:
-        final_cleaned_df = df.copy()
-
-    st.write("Cleaned Data Preview:")
     st.dataframe(final_cleaned_df.head())
+
+    csv_buffer = io.StringIO()
+    final_cleaned_df.to_csv(csv_buffer, index=False)
+    csv_data = csv_buffer.getvalue()
+
     st.download_button(
         label="Download Cleaned Dataset",
-        data=final_cleaned_df.to_csv(index=False),
+        data=csv_data,
         file_name="cleaned_output.csv",
         mime="text/csv",
     )
